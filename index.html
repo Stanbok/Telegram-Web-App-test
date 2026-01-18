@@ -128,9 +128,9 @@
             transform: scale(0.98);
         }
 
-        button:hover {
-            opacity: 0.9;
-            box-shadow: 0 6px 15px rgba(0,123,255,0.4);
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         .btn-success {
@@ -175,6 +175,87 @@
             margin: 20px auto;
         }
 
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            background: #007bff;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .badge-success {
+            background: #28a745;
+        }
+
+        .badge-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .task-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+        }
+
+        .task-item.completed {
+            border-left-color: #28a745;
+            opacity: 0.7;
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .task-btn {
+            flex: 1;
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin: 8px 0;
+        }
+
+        .leaderboard-rank {
+            font-size: 24px;
+            font-weight: bold;
+            margin-left: 15px;
+        }
+
+        .leaderboard-info {
+            flex: 1;
+        }
+
+        .leaderboard-name {
+            font-weight: 600;
+            color: #212529;
+        }
+
+        .leaderboard-points {
+            color: #007bff;
+            font-weight: bold;
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -202,32 +283,36 @@
             }
         }
 
-        .badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            background: #007bff;
-            color: white;
-            font-size: 12px;
-            font-weight: bold;
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            animation: slideDown 0.3s ease;
+            z-index: 1000;
         }
 
-        .badge-success {
-            background: #28a745;
+        .notification.success {
+            border-left: 4px solid #28a745;
         }
 
-        .badge-warning {
-            background: #ffc107;
-            color: #212529;
+        .notification.error {
+            border-left: 4px solid #dc3545;
         }
 
-        .footer {
-            text-align: center;
-            margin-top: 30px;
-            padding: 20px;
-            color: #6c757d;
-            font-size: 14px;
-            opacity: 0.7;
+        #tasks-list, #leaderboard-list {
+            display: none;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
         }
     </style>
 </head>
@@ -237,204 +322,310 @@
         <p>اربح نقاط حقيقية من المهام والإحالات</p>
     </div>
 
-    <div class="card" id="user-info">
-        <h3>👤 معلوماتك الشخصية</h3>
-        <div id="user-details">
-            <div class="loading">
-                <div class="spinner"></div>
-                <p>جاري التحميل...</p>
+    <!-- Main Section -->
+    <div id="main-section" class="section active">
+        <div class="card" id="user-info">
+            <h3>👤 معلوماتك الشخصية</h3>
+            <div id="user-details">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>جاري التحميل...</p>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="card">
-        <h3>🔥 الستراك اليومي</h3>
-        <div class="streak-container">
-            <div class="streak-text">حافظ على تسجيل الدخول اليومي</div>
-            <div class="streak-number" id="streak-value">0</div>
-            <div class="streak-text">يوم متتالي 🔥</div>
+        <div class="card">
+            <h3>🔥 الستراك اليومي</h3>
+            <div class="streak-container">
+                <div class="streak-text">حافظ على تسجيل الدخول اليومي</div>
+                <div class="streak-number" id="streak-value">0</div>
+                <div class="streak-text">يوم متتالي 🔥</div>
+            </div>
         </div>
+
+        <button class="btn-success" onclick="doCheckin()" id="checkin-btn">
+            🎁 تسجيل دخول يومي
+        </button>
+        
+        <button class="btn-info" onclick="showTasks()">
+            📋 عرض المهام المتاحة
+        </button>
+        
+        <button class="btn-warning" onclick="showLeaderboard()">
+            🏆 التصنيف العالمي
+        </button>
+        
+        <button class="btn-secondary" onclick="shareReferral()">
+            👥 شارك رابط الإحالة
+        </button>
     </div>
 
-    <button class="btn-success" onclick="doCheckin()">
-        🎁 تسجيل دخول يومي
-    </button>
-    
-    <button onclick="showBalance()">
-        💰 عرض رصيدي
-    </button>
-    
-    <button class="btn-info" onclick="showTasks()">
-        📋 عرض المهام المتاحة
-    </button>
-    
-    <button class="btn-warning" onclick="showLeaderboard()">
-        🏆 التصنيف العالمي
-    </button>
-    
-    <button class="btn-secondary" onclick="shareReferral()">
-        👥 شارك رابط الإحالة
-    </button>
-    
-    <button class="btn-close" onclick="closeApp()">
-        🔙 إغلاق التطبيق
-    </button>
+    <!-- Tasks Section -->
+    <div id="tasks-section" class="section">
+        <div class="card">
+            <h3>📋 المهام المتاحة</h3>
+            <div id="tasks-list">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>جاري التحميل...</p>
+                </div>
+            </div>
+        </div>
+        <button onclick="showMain()">🔙 العودة للرئيسية</button>
+    </div>
 
-    <div class="footer">
-        💡 نصيحة: سجل دخول يومياً لزيادة الستراك والمكافآت!
+    <!-- Leaderboard Section -->
+    <div id="leaderboard-section" class="section">
+        <div class="card">
+            <h3>🏆 التصنيف العالمي</h3>
+            <div id="leaderboard-list">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>جاري التحميل...</p>
+                </div>
+            </div>
+        </div>
+        <button onclick="showMain()">🔙 العودة للرئيسية</button>
     </div>
 
     <script>
-        // تهيئة Telegram Web App
+        // Configuration
+        const API_URL = 'http://localhost:8080/api';  // Change to your server URL
+        const BOT_USERNAME = 'CashAlarb_bot';
+        
+        // Initialize Telegram Web App
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
 
-        // تطبيق الثيم التلقائي
-        const bgColor = Telegram.WebApp.themeParams.bg_color || "#f0f0f0";
-        const textColor = Telegram.WebApp.themeParams.text_color || "#000000";
-        document.body.style.backgroundColor = bgColor;
-        document.body.style.color = textColor;
+        // Apply theme
+        document.body.style.backgroundColor = Telegram.WebApp.themeParams.bg_color || "#f0f0f0";
+        document.body.style.color = Telegram.WebApp.themeParams.text_color || "#000000";
 
-        // معلومات المستخدم والبوت
+        const initData = Telegram.WebApp.initData;
         const user = Telegram.WebApp.initDataUnsafe.user;
-        const botUsername = "CashAlarb_bot";
 
-        // عرض معلومات المستخدم
-        if (user) {
-            const userLevel = 1; // يمكن جلبها من API لاحقاً
-            const userPoints = 0; // يمكن جلبها من API لاحقاً
-            const userReferrals = 0; // يمكن جلبها من API لاحقاً
+        let userData = null;
 
-            document.getElementById("user-details").innerHTML = `
+        // API Helper
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Telegram-Init-Data': initData
+                }
+            };
+
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+
+            try {
+                const response = await fetch(`${API_URL}${endpoint}`, options);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Request failed');
+                }
+                
+                return data;
+            } catch (error) {
+                console.error('API Error:', error);
+                showNotification(error.message, 'error');
+                throw error;
+            }
+        }
+
+        // Show notification
+        function showNotification(message, type = 'success') {
+            const notif = document.createElement('div');
+            notif.className = `notification ${type}`;
+            notif.textContent = message;
+            document.body.appendChild(notif);
+            
+            Telegram.WebApp.HapticFeedback.notificationOccurred(type === 'success' ? 'success' : 'error');
+            
+            setTimeout(() => {
+                notif.remove();
+            }, 3000);
+        }
+
+        // Load user data
+        async function loadUserData() {
+            try {
+                userData = await apiCall('/user');
+                updateUI();
+            } catch (error) {
+                console.error('Failed to load user data:', error);
+            }
+        }
+
+        // Update UI with user data
+        function updateUI() {
+            if (!userData) return;
+
+            document.getElementById('user-details').innerHTML = `
                 <div class="user-info-grid">
                     <div class="info-row">
                         <span class="info-label">👤 الاسم:</span>
-                        <span class="info-value">${user.first_name}</span>
+                        <span class="info-value">${userData.first_name}</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">📱 اليوزرنيم:</span>
-                        <span class="info-value">${user.username ? '@' + user.username : 'غير متوفر'}</span>
+                        <span class="info-label">💰 النقاط:</span>
+                        <span class="info-value">${userData.points.toFixed(2)}</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">🆔 المعرف:</span>
-                        <span class="info-value">${user.id}</span>
+                        <span class="info-label">👥 الإحالات:</span>
+                        <span class="info-value">${userData.referrals}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">🏆 المستوى:</span>
                         <span class="info-value">
-                            <span class="badge badge-warning">المستوى ${userLevel}</span>
+                            <span class="badge badge-warning">المستوى ${userData.level}</span>
                         </span>
                     </div>
                 </div>
             `;
-        } else {
-            document.getElementById("user-details").innerHTML = `
-                <div style="text-align: center; color: #dc3545;">
-                    ❌ لم يتم التعرف على المستخدم
-                </div>
-            `;
+
+            document.getElementById('streak-value').textContent = userData.streak || 0;
         }
 
-        // إعداد الزر الرئيسي (Main Button)
+        // Daily check-in
+        async function doCheckin() {
+            const btn = document.getElementById('checkin-btn');
+            btn.disabled = true;
+
+            try {
+                const result = await apiCall('/checkin', 'POST');
+                
+                if (result.success) {
+                    userData = result.user;
+                    updateUI();
+                    showNotification(`🎉 تسجيل ناجح! +${result.bonus} نقطة`);
+                } else if (result.already_checked) {
+                    showNotification('😉 سبق التسجيل اليوم!', 'error');
+                }
+            } catch (error) {
+                console.error('Check-in error:', error);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Show tasks
+        async function showTasks() {
+            showSection('tasks-section');
+            
+            try {
+                const result = await apiCall('/tasks');
+                const tasks = result.tasks;
+                
+                const html = tasks.map(task => `
+                    <div class="task-item ${task.completed ? 'completed' : ''}">
+                        <div class="task-header">
+                            <div>
+                                <strong>${task.description}</strong><br>
+                                <small>المكافأة: ${task.points} نقطة</small>
+                            </div>
+                            ${task.completed ? '<span class="badge badge-success">✓ مكتملة</span>' : ''}
+                        </div>
+                        ${!task.completed ? `
+                            <div class="task-actions">
+                                <button class="task-btn btn-info" onclick="window.open('https://t.me/${task.channel}', '_blank')">
+                                    انضمام للقناة
+                                </button>
+                                <button class="task-btn btn-success" onclick="checkTask('${task.id}')">
+                                    ✓ تحقق
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+                
+                document.getElementById('tasks-list').innerHTML = html;
+            } catch (error) {
+                console.error('Failed to load tasks:', error);
+            }
+        }
+
+        // Check task completion
+        async function checkTask(taskId) {
+            try {
+                const result = await apiCall('/task/check', 'POST', { task_id: taskId });
+                
+                if (result.success) {
+                    userData = result.user;
+                    updateUI();
+                    showNotification(`🎉 مهمة مكتملة! +${result.points} نقطة`);
+                    await showTasks(); // Refresh tasks
+                } else {
+                    showNotification(result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Task check error:', error);
+            }
+        }
+
+        // Show leaderboard
+        async function showLeaderboard() {
+            showSection('leaderboard-section');
+            
+            try {
+                const result = await apiCall('/leaderboard');
+                const leaderboard = result.leaderboard;
+                
+                const medals = ['🥇', '🥈', '🥉'];
+                const html = leaderboard.map((entry, index) => `
+                    <div class="leaderboard-item">
+                        <div class="leaderboard-rank">${medals[index] || (index + 1)}</div>
+                        <div class="leaderboard-info">
+                            <div class="leaderboard-name">${entry.name}</div>
+                            <div class="leaderboard-points">${entry.points.toFixed(2)} نقطة (المستوى ${entry.level})</div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('leaderboard-list').innerHTML = html || '<p style="text-align:center; color:#666;">لا يوجد بيانات</p>';
+            } catch (error) {
+                console.error('Failed to load leaderboard:', error);
+            }
+        }
+
+        // Share referral link
+        function shareReferral() {
+            if (!user) return;
+
+            Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+            const refLink = `https://t.me/${BOT_USERNAME}?start=${user.id}`;
+            const shareText = "🎉 تعالى اربح معايا نقاط حقيقية!\n💰 بوت الربح المصري - مهام يومية وإحالات مربحة!";
+            
+            Telegram.WebApp.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent(shareText)}`);
+        }
+
+        // Section navigation
+        function showSection(sectionId) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+        }
+
+        function showMain() {
+            showSection('main-section');
+        }
+
+        // Main button
         Telegram.WebApp.MainButton.text = "🎁 تسجيل دخول يومي";
         Telegram.WebApp.MainButton.color = "#28a745";
         Telegram.WebApp.MainButton.show();
         Telegram.WebApp.MainButton.onClick(doCheckin);
 
-        // دالة التسجيل اليومي
-        function doCheckin() {
-            Telegram.WebApp.HapticFeedback.notificationOccurred("success");
-            Telegram.WebApp.sendData("daily_checkin");
-            showNotification("تم إرسال طلب التسجيل اليومي! 📩");
+        // Initialize
+        if (user) {
+            loadUserData();
+        } else {
+            document.getElementById('user-details').innerHTML = '<p style="text-align:center; color:#dc3545;">❌ لم يتم التعرف على المستخدم</p>';
         }
 
-        // دالة عرض الرصيد
-        function showBalance() {
-            Telegram.WebApp.HapticFeedback.impactOccurred("light");
-            Telegram.WebApp.sendData("balance");
-            showNotification("جاري جلب معلومات رصيدك... ⚡");
-        }
-
-        // دالة عرض المهام
-        function showTasks() {
-            Telegram.WebApp.HapticFeedback.impactOccurred("light");
-            Telegram.WebApp.sendData("tasks");
-            showNotification("جاري جلب قائمة المهام... 📋");
-        }
-
-        // دالة عرض التصنيف
-        function showLeaderboard() {
-            Telegram.WebApp.HapticFeedback.impactOccurred("light");
-            Telegram.WebApp.sendData("leaderboard");
-            showNotification("جاري جلب التصنيف العالمي... 🏆");
-        }
-
-        // دالة مشاركة رابط الإحالة
-        function shareReferral() {
-            if (!user) {
-                showNotification("❌ خطأ في التعرف على المستخدم");
-                return;
-            }
-
-            Telegram.WebApp.HapticFeedback.impactOccurred("medium");
-            const refLink = `https://t.me/${botUsername}?start=${user.id}`;
-            const shareText = "🎉 تعالى اربح معايا نقاط حقيقية!\n💰 بوت الربح المصري - مهام يومية وإحالات مربحة!\n🔥 سجل دخول الآن واحصل على مكافآت!";
-            
-            // استخدام shareUrl إذا كان متاحاً
-            if (Telegram.WebApp.shareUrl) {
-                Telegram.WebApp.shareUrl(refLink, shareText);
-            } else {
-                // نسخ الرابط للحافظة كحل بديل
-                navigator.clipboard.writeText(refLink).then(() => {
-                    showNotification("✅ تم نسخ رابط الإحالة!\n" + refLink);
-                }).catch(() => {
-                    showNotification("رابط الإحالة:\n" + refLink);
-                });
-            }
-        }
-
-        // دالة إغلاق التطبيق
-        function closeApp() {
-            Telegram.WebApp.HapticFeedback.impactOccurred("light");
-            Telegram.WebApp.close();
-        }
-
-        // دالة عرض الإشعارات
-        function showNotification(message) {
-            if (Telegram.WebApp.showAlert) {
-                Telegram.WebApp.showAlert(message);
-            } else {
-                alert(message);
-            }
-        }
-
-        // تحديث قيمة الستراك (يمكن جلبها من API)
-        function updateStreak(days) {
-            const streakElement = document.getElementById("streak-value");
-            if (streakElement) {
-                streakElement.textContent = days;
-            }
-        }
-
-        // محاكاة تحميل بيانات الستراك
-        setTimeout(() => {
-            updateStreak(0); // سيتم تحديثها من البوت عند التسجيل
-        }, 500);
-
-        // معالجة الأحداث الخاصة بالثيم
-        Telegram.WebApp.onEvent('themeChanged', function() {
-            document.body.style.backgroundColor = Telegram.WebApp.themeParams.bg_color || "#f0f0f0";
-            document.body.style.color = Telegram.WebApp.themeParams.text_color || "#000000";
-        });
-
-        // إخفاء زر الإغلاق إذا كان التطبيق مفتوح inline
-        if (Telegram.WebApp.isFullscreen === false) {
-            document.querySelector('.btn-close').style.display = 'none';
-        }
-
-        console.log("✅ Web App محمّل وجاهز!");
-        console.log("معلومات المستخدم:", user);
-        console.log("معلومات الثيم:", Telegram.WebApp.themeParams);
+        console.log("✅ Web App ready!");
     </script>
 </body>
-</html>
+    </html>
