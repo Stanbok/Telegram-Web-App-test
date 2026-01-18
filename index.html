@@ -3,56 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة تحكم الربح</title>
-    <!-- Script الرسمي الأحدث -->
+    <title>بوت الربح المصري</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: Arial; background: #f0f0f0; text-align: center; padding: 20px; margin: 0; }
-        h1 { color: #007bff; }
-        .info { background: white; padding: 20px; border-radius: 15px; margin: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        button { background: #007bff; color: white; padding: 15px; border: none; border-radius: 10px; font-size: 18px; margin: 10px; width: 90%; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; min-height: 100vh; transition: background 0.3s; }
+        h1 { color: #007bff; text-align: center; margin-bottom: 20px; }
+        .card { background: white; padding: 20px; border-radius: 15px; margin: 15px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .card h3 { margin-top: 0; color: #28a745; }
+        button { background: #007bff; color: white; padding: 16px; border: none; border-radius: 12px; font-size: 18px; margin: 10px 0; width: 100%; cursor: pointer; transition: 0.3s; }
+        button:hover { opacity: 0.9; }
+        .btn-success { background: #28a745; }
+        .btn-info { background: #17a2b8; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .btn-close { background: #dc3545; }
+        .streak { font-size: 24px; text-align: center; color: #ff6b00; }
     </style>
 </head>
 <body>
-    <h1>🎉 مرحبا في لوحة التحكم!</h1>
-    <div class="info" id="user-info">
-        جاري تحميل بياناتك...
+    <h1>🎉 لوحة تحكم الربح</h1>
+
+    <div class="card" id="user-info">
+        <h3>👤 معلوماتك</h3>
+        <div id="user-details">جاري التحميل...</div>
     </div>
 
-    <button onclick="alert('مهمة وهمية: +10 نقاط!')">📋 مهمة يومية (تجربة)</button>
-    <button onclick="Telegram.WebApp.close()">🔙 إغلاق الويب أب</button>
+    <div class="card">
+        <h3>🔥 الستراك اليومي</h3>
+        <div class="streak">افتح الشات لمعرفة الستراك الحالي</div>
+    </div>
+
+    <button onclick="showBalance()">💰 عرض رصيدي</button>
+    <button class="btn-success" onclick="doCheckin()">🎁 تسجيل يومي</button>
+    <button class="btn-info" onclick="showTasks()">📋 عرض المهام</button>
+    <button class="btn-warning" onclick="showLeaderboard()">🏆 التصنيف العالمي</button>
+    <button onclick="shareReferral()">👥 شارك رابط الإحالة</button>
+    <button class="btn-close" onclick="Telegram.WebApp.close()">🔙 إغلاق</button>
 
     <script>
-        // تهيئة أقوى وأحدث
-        if (window.Telegram && Telegram.WebApp) {
-            Telegram.WebApp.ready();
-            Telegram.WebApp.expand();
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
 
-            // جلب البيانات الأساسية (initData أولاً، ثم unsafe)
-            const initData = Telegram.WebApp.initData;
-            const user = Telegram.WebApp.initDataUnsafe?.user;
+        // تطبيق الثيم التلقائي
+        document.body.style.backgroundColor = Telegram.WebApp.themeParams.bg_color || "#f0f0f0";
 
-            if (user && user.id) {
-                document.getElementById("user-info").innerHTML = `
-                    <p><strong>اسمك:</strong> ${user.first_name} ${user.last_name || ''}</p>
-                    <p><strong>اليوزرنيم:</strong> @${user.username || 'لا يوجد'}</p>
-                    <p><strong>ID:</strong> ${user.id}</p>
-                    <p><strong>اللغة:</strong> ${user.language_code || 'غير معروف'}</p>
-                    <p>💰 رصيدك الحالي: 0 نقطة (تجربة)</p>
-                    <p>✅ البيانات جت صح من تليجرام!</p>
-                `;
-            } else {
-                document.getElementById("user-info").innerHTML = `
-                    <p>❌ مش قادر أجيب بياناتك</p>
-                    <p>تأكد إنك فتحت الصفحة من زر البوت داخل تليجرام (مش رابط مباشر).</p>
-                    <p>initData: ${initData ? 'موجود' : 'مش موجود'}</p>
-                `;
-            }
+        const user = Telegram.WebApp.initDataUnsafe.user;
+        const botUsername = "YOUR_BOT_USERNAME";  // غيّره بنفس اللي في الكود البايثون
 
-            // تغيير الثيم تلقائي
-            document.body.style.background = Telegram.WebApp.themeParams.bg_color || "#f0f0f0";
-        } else {
-            document.getElementById("user-info").innerHTML = "❌ Telegram WebApp مش محمل (جرب داخل تليجرام الرسمي)";
+        if (user) {
+            document.getElementById("user-details").innerHTML = `
+                <strong>مرحباً ${user.first_name}!</strong><br>
+                اليوزرنيم: ${user.username ? '@' + user.username : 'غير موجود'}<br>
+                المعرف: ${user.id}
+            `;
+        }
+
+        // الزر الرئيسي (Main Button)
+        Telegram.WebApp.MainButton.text = "🎁 تسجيل يومي الآن";
+        Telegram.WebApp.MainButton.color = "#28a745";
+        Telegram.WebApp.MainButton.show();
+        Telegram.WebApp.MainButton.onClick(doCheckin);
+
+        function doCheckin() {
+            Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+            Telegram.WebApp.sendData("daily_checkin");
+            Telegram.WebApp.showAlert("تم إرسال طلب التسجيل اليومي! تحقق من الشات 📩");
+        }
+
+        function showBalance() {
+            Telegram.WebApp.sendData("balance");
+            Telegram.WebApp.showAlert("سيرسل البوت رصيدك في الشات ⚡");
+        }
+
+        function showTasks() {
+            Telegram.WebApp.sendData("tasks");
+            Telegram.WebApp.showAlert("سيرسل البوت قائمة المهام في الشات 📋");
+        }
+
+        function showLeaderboard() {
+            Telegram.WebApp.sendData("leaderboard");
+            Telegram.WebApp.showAlert("سيرسل البوت التصنيف العالمي 🏆");
+        }
+
+        function shareReferral() {
+            const refLink = `https://t.me/\( {botUsername}?start= \){user.id}`;
+            Telegram.WebApp.shareUrl(refLink, "تعالى اربح معايا نقاط حقيقية من بوت الربح المصري! 💰🔥");
         }
     </script>
 </body>
