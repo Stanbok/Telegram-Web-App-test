@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لوحة تحكم الربح</title>
+    <!-- Script الرسمي الأحدث -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: Arial; background: #f0f0f0; text-align: center; padding: 20px; }
+        body { font-family: Arial; background: #f0f0f0; text-align: center; padding: 20px; margin: 0; }
         h1 { color: #007bff; }
         .info { background: white; padding: 20px; border-radius: 15px; margin: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        button { background: #007bff; color: white; padding: 15px; border: none; border-radius: 10px; font-size: 18px; margin: 10px; }
+        button { background: #007bff; color: white; padding: 15px; border: none; border-radius: 10px; font-size: 18px; margin: 10px; width: 90%; }
     </style>
 </head>
 <body>
@@ -22,26 +23,37 @@
     <button onclick="Telegram.WebApp.close()">🔙 إغلاق الويب أب</button>
 
     <script>
-        // تهيئة Telegram Web App
-        Telegram.WebApp.ready();
-        Telegram.WebApp.expand();  // يفتح fullscreen
+        // تهيئة أقوى وأحدث
+        if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
 
-        // جلب بيانات المستخدم
-        const user = Telegram.WebApp.initDataUnsafe.user;
-        if (user) {
-            document.getElementById("user-info").innerHTML = `
-                <p><strong>اسمك:</strong> ${user.first_name} ${user.last_name || ''}</p>
-                <p><strong>اليوزرنيم:</strong> @${user.username || 'لا يوجد'}</p>
-                <p><strong>ID:</strong> ${user.id}</p>
-                <p><strong>اللغة:</strong> ${user.language_code}</p>
-                <p>💰 رصيدك الحالي: 0 نقطة (تجربة)</p>
-            `;
+            // جلب البيانات الأساسية (initData أولاً، ثم unsafe)
+            const initData = Telegram.WebApp.initData;
+            const user = Telegram.WebApp.initDataUnsafe?.user;
+
+            if (user && user.id) {
+                document.getElementById("user-info").innerHTML = `
+                    <p><strong>اسمك:</strong> ${user.first_name} ${user.last_name || ''}</p>
+                    <p><strong>اليوزرنيم:</strong> @${user.username || 'لا يوجد'}</p>
+                    <p><strong>ID:</strong> ${user.id}</p>
+                    <p><strong>اللغة:</strong> ${user.language_code || 'غير معروف'}</p>
+                    <p>💰 رصيدك الحالي: 0 نقطة (تجربة)</p>
+                    <p>✅ البيانات جت صح من تليجرام!</p>
+                `;
+            } else {
+                document.getElementById("user-info").innerHTML = `
+                    <p>❌ مش قادر أجيب بياناتك</p>
+                    <p>تأكد إنك فتحت الصفحة من زر البوت داخل تليجرام (مش رابط مباشر).</p>
+                    <p>initData: ${initData ? 'موجود' : 'مش موجود'}</p>
+                `;
+            }
+
+            // تغيير الثيم تلقائي
+            document.body.style.background = Telegram.WebApp.themeParams.bg_color || "#f0f0f0";
         } else {
-            document.getElementById("user-info").innerHTML = "❌ مش قادر أجيب بياناتك (جرب من داخل البوت)";
+            document.getElementById("user-info").innerHTML = "❌ Telegram WebApp مش محمل (جرب داخل تليجرام الرسمي)";
         }
-
-        // تغيير ثيم تليجرام تلقائي
-        document.body.style.background = Telegram.WebApp.themeParams.bg_color || "#f0f0f0";
     </script>
 </body>
 </html>
