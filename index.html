@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم الربح</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { font-family: Arial; background: #f0f0f0; text-align: center; padding: 20px; }
+        h1 { color: #007bff; }
+        .info { background: white; padding: 20px; border-radius: 15px; margin: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        button { background: #007bff; color: white; padding: 15px; border: none; border-radius: 10px; font-size: 18px; margin: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🎉 مرحبا في لوحة التحكم!</h1>
+    <div class="info" id="user-info">
+        جاري تحميل بياناتك...
+    </div>
+
+    <button onclick="alert('مهمة وهمية: +10 نقاط!')">📋 مهمة يومية (تجربة)</button>
+    <button onclick="Telegram.WebApp.close()">🔙 إغلاق الويب أب</button>
+
+    <script>
+        // تهيئة Telegram Web App
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();  // يفتح fullscreen
+
+        // جلب بيانات المستخدم
+        const user = Telegram.WebApp.initDataUnsafe.user;
+        if (user) {
+            document.getElementById("user-info").innerHTML = `
+                <p><strong>اسمك:</strong> ${user.first_name} ${user.last_name || ''}</p>
+                <p><strong>اليوزرنيم:</strong> @${user.username || 'لا يوجد'}</p>
+                <p><strong>ID:</strong> ${user.id}</p>
+                <p><strong>اللغة:</strong> ${user.language_code}</p>
+                <p>💰 رصيدك الحالي: 0 نقطة (تجربة)</p>
+            `;
+        } else {
+            document.getElementById("user-info").innerHTML = "❌ مش قادر أجيب بياناتك (جرب من داخل البوت)";
+        }
+
+        // تغيير ثيم تليجرام تلقائي
+        document.body.style.background = Telegram.WebApp.themeParams.bg_color || "#f0f0f0";
+    </script>
+</body>
+</html>
