@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useTelegram } from '@/lib/telegram-provider';
-import { getTasks, checkTask } from '@/lib/api-client';
+import { getTasks, checkTask, getUser } from '@/lib/api-client';
 import { BottomNav } from '@/components/bottom-nav';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -13,6 +13,15 @@ interface Task {
   points: number;
   channel: string;
   completed: boolean;
+}
+
+interface UserData {
+  user_id: number;
+  first_name: string;
+  points: number;
+  level: number;
+  streak: number;
+  referrals: number;
 }
 
 const TASK_CATEGORIES = {
@@ -26,6 +35,7 @@ const TASK_CATEGORIES = {
 export default function TasksPage() {
   const { initData, isReady } = useTelegram();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<keyof typeof TASK_CATEGORIES>('ads');
   const [checking, setChecking] = useState<string | null>(null);
@@ -33,18 +43,23 @@ export default function TasksPage() {
 
   useEffect(() => {
     if (isReady && initData) {
-      loadTasks();
+      loadData();
     }
   }, [isReady, initData]);
 
-  async function loadTasks() {
+  async function loadData() {
     try {
       if (!initData) return;
-      const result = await getTasks(initData);
-      setTasks(result.tasks);
+      // FIXED: Load both tasks and user data
+      const [tasksResult, userResult] = await Promise.all([
+        getTasks(initData),
+        getUser(initData)
+      ]);
+      setTasks(tasksResult.tasks);
+      setUserData(userResult);
     } catch (error) {
-      console.error('Failed to load tasks:', error);
-      showNotification('فشل تحميل المهام', 'error');
+      console.error('Failed to load data:', error);
+      showNotification('فشل تحميل البيانات', 'error');
     } finally {
       setLoading(false);
     }
@@ -56,11 +71,18 @@ export default function TasksPage() {
     try {
       const result = await checkTask(taskId, initData);
       if (result.success) {
+        // FIXED: Update both tasks and user data
         setTasks((prev) =>
           prev.map((t) =>
             t.id === taskId ? { ...t, completed: true } : t
           )
         );
+        
+        // FIXED: Update user data with the returned user object from API
+        if (result.user) {
+          setUserData(result.user);
+        }
+        
         showNotification(`🎉 مهمة مكتملة! +${result.points} نقطة`, 'success');
       } else {
         showNotification(result.message, 'error');
@@ -114,10 +136,17 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header with User Stats */}
       <div className="sticky top-0 bg-gradient-to-b from-primary to-primary/90 text-primary-foreground p-4 z-40">
         <h1 className="text-2xl font-bold">🎯 المهام المتاحة</h1>
         <p className="text-sm opacity-90">أكمل المهام واربح نقاط</p>
+        {/* FIXED: Show current points and level */}
+        {userData && (
+          <div className="flex gap-4 mt-2 text-xs opacity-90">
+            <span>💰 {userData.points.toFixed(0)} نقطة</span>
+            <span>🏆 المستوى {userData.level}</span>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
