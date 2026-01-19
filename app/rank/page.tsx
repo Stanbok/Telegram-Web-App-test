@@ -77,7 +77,7 @@ export default function RankPage() {
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-sm truncate">{entry.name}</h3>
                 <p className="text-xs text-muted-foreground">
-                  مستوى {entry.level}
+                  مستوى {Math.floor(Number(entry.level) || 0)}
                 </p>
               </div>
 
