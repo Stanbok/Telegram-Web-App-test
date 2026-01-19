@@ -15,6 +15,7 @@ interface UserData {
   level: number;
   streak: number;
   referrals: number;
+  last_checkin?: string;
 }
 
 export default function Home() {
@@ -24,6 +25,7 @@ export default function Home() {
   const [checking, setChecking] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showSpinModal, setShowSpinModal] = useState(false);
+  const [canCheckIn, setCanCheckIn] = useState(true);
 
   useEffect(() => {
     if (isReady && initData) {
@@ -36,6 +38,14 @@ export default function Home() {
       if (!initData) return;
       const data = await getUser(initData);
       setUserData(data);
+      
+      // Check if user can check in today
+      const today = new Date().toISOString().split('T')[0];
+      if (data.last_checkin && data.last_checkin.startsWith(today)) {
+        setCanCheckIn(false);
+      } else {
+        setCanCheckIn(true);
+      }
     } catch (error) {
       console.error('Failed to load user:', error);
       showNotification('فشل تحميل البيانات', 'error');
@@ -51,8 +61,10 @@ export default function Home() {
       const result = await dailyCheckin(initData);
       if (result.success) {
         setUserData(result.user);
+        setCanCheckIn(false);
         showNotification(`تسجيل ناجح! +${result.bonus} نقطة`, 'success');
       } else if (result.already_checked) {
+        setCanCheckIn(false);
         showNotification('سبق التسجيل اليوم!', 'error');
       }
     } catch (error) {
@@ -155,15 +167,27 @@ export default function Home() {
           </div>
         </Card>
 
-        {/* Daily Check-in */}
-        <Button
-          onClick={handleCheckin}
-          disabled={checking}
-          className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:shadow-lg"
-          size="lg"
-        >
-          {checking ? '⏳ جاري...' : '🎁 تسجيل دخول يومي'}
-        </Button>
+        {/* Spin Modal */}
+        <DailySpin 
+          open={showSpinModal} 
+          onOpenChange={setShowSpinModal}
+          onSpinSuccess={(updatedUser) => {
+            setUserData(updatedUser);
+            showNotification('تم إضافة نقاطك بنجاح! 🎉', 'success');
+          }}
+        />
+
+        {/* Daily Check-in - Only show if not already checked in */}
+        {canCheckIn && (
+          <Button
+            onClick={handleCheckin}
+            disabled={checking}
+            className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:shadow-lg"
+            size="lg"
+          >
+            {checking ? '⏳ جاري...' : '🎁 تسجيل دخول يومي'}
+          </Button>
+        )}
 
         {/* Quick Actions */}
         <Card className="p-4 space-y-3">
@@ -185,8 +209,7 @@ export default function Home() {
         </Card>
       </div>
 
-      {/* Daily Spin Modal */}
-      <DailySpin open={showSpinModal} onOpenChange={setShowSpinModal} />
+
 
       {/* Bottom Navigation */}
       <BottomNav />
