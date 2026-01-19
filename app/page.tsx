@@ -134,13 +134,13 @@ export default function Home() {
           </Card>
           <Card className="p-4 text-center">
             <div className="text-3xl font-bold text-accent mb-1">
-              {userData?.level}
+              {Math.floor(Number(userData?.level) || 0)}
             </div>
             <div className="text-xs text-muted-foreground">المستوى</div>
           </Card>
           <Card className="p-4 text-center">
             <div className="text-3xl font-bold text-secondary mb-1">
-              {userData?.streak}
+              {Math.floor(Number(userData?.streak) || 0)}
             </div>
             <div className="text-xs text-muted-foreground">الستريك 🔥</div>
           </Card>
