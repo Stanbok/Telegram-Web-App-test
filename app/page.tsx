@@ -60,9 +60,12 @@ export default function Home() {
     try {
       const result = await dailyCheckin(initData);
       if (result.success) {
-        setUserData(result.user);
+        // FIXED: Update user data with the full user object from API response
+        if (result.user) {
+          setUserData(result.user);
+        }
         setCanCheckIn(false);
-        showNotification(`تسجيل ناجح! +${result.bonus} نقطة`, 'success');
+        showNotification(`تسجيل ناجح! +${result.bonus} نقطة 🔥 الستريك: ${result.streak}`, 'success');
       } else if (result.already_checked) {
         setCanCheckIn(false);
         showNotification('سبق التسجيل اليوم!', 'error');
@@ -77,6 +80,17 @@ export default function Home() {
   function showNotification(message: string, type: 'success' | 'error') {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
+  }
+
+  // FIXED: Add function to refresh user data (can be called from child components)
+  async function refreshUserData() {
+    if (!initData) return;
+    try {
+      const data = await getUser(initData);
+      setUserData(data);
+    } catch (error) {
+      console.error('Failed to refresh user data:', error);
+    }
   }
 
   if (loading) {
@@ -134,19 +148,21 @@ export default function Home() {
           </Card>
           <Card className="p-4 text-center">
             <div className="text-3xl font-bold text-accent mb-1">
-              {Math.floor(Number(userData?.level) || 0)}
+              {/* FIXED: Ensure level displays correctly */}
+              {userData?.level || 1}
             </div>
             <div className="text-xs text-muted-foreground">المستوى</div>
           </Card>
           <Card className="p-4 text-center">
             <div className="text-3xl font-bold text-secondary mb-1">
-              {Math.floor(Number(userData?.streak) || 0)}
+              {/* FIXED: Ensure streak displays correctly */}
+              {userData?.streak || 0}
             </div>
             <div className="text-xs text-muted-foreground">الستريك 🔥</div>
           </Card>
           <Card className="p-4 text-center">
             <div className="text-3xl font-bold text-blue-500 mb-1">
-              {userData?.referrals}
+              {userData?.referrals || 0}
             </div>
             <div className="text-xs text-muted-foreground">الإحالات</div>
           </Card>
@@ -172,6 +188,7 @@ export default function Home() {
           open={showSpinModal} 
           onOpenChange={setShowSpinModal}
           onSpinSuccess={(updatedUser) => {
+            // FIXED: Update with the full user object from API
             setUserData(updatedUser);
             showNotification('تم إضافة نقاطك بنجاح! 🎉', 'success');
           }}
@@ -187,6 +204,21 @@ export default function Home() {
           >
             {checking ? '⏳ جاري...' : '🎁 تسجيل دخول يومي'}
           </Button>
+        )}
+
+        {/* Show streak info if checked in today */}
+        {!canCheckIn && userData && userData.streak > 0 && (
+          <Card className="p-4 bg-gradient-to-r from-orange-500/10 to-red-500/10 border-orange-500/50">
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground mb-1">ستريك حالي</p>
+              <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                🔥 {userData.streak} {userData.streak === 1 ? 'يوم' : 'أيام'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                استمر في التسجيل يومياً لزيادة المكافآت!
+              </p>
+            </div>
+          </Card>
         )}
 
         {/* Quick Actions */}
@@ -208,8 +240,6 @@ export default function Home() {
           </div>
         </Card>
       </div>
-
-
 
       {/* Bottom Navigation */}
       <BottomNav />
