@@ -22,29 +22,21 @@ export function DailySpin({ open, onOpenChange, onSpinSuccess }: DailySpinProps)
   const [lastWin, setLastWin] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [alreadySpun, setAlreadySpun] = useState(false);
+  const [spinAttempted, setSpinAttempted] = useState(false);
 
   useEffect(() => {
     if (open) {
       drawWheel();
-      // Check if already spun today by trying to spin
-      checkIfAlreadySpun();
+      // Reset states when modal opens
+      setSpinAttempted(false);
+      setAlreadySpun(false);
     }
   }, [open]);
 
-  async function checkIfAlreadySpun() {
-    if (!initData) return;
-    try {
-      // Try to spin - if it fails with "already spun" message, set alreadySpun to true
-      const result = await dailySpin(initData);
-      if (result.already_spun) {
-        setAlreadySpun(true);
-      }
-    } catch (error: any) {
-      if (error.message?.includes('already') || error.message?.includes('today')) {
-        setAlreadySpun(true);
-      }
-    }
-  }
+  // Redraw wheel when rotation changes
+  useEffect(() => {
+    drawWheel();
+  }, [rotation]);
 
   function drawWheel() {
     if (!canvasRef.current) return;
@@ -106,68 +98,85 @@ export function DailySpin({ open, onOpenChange, onSpinSuccess }: DailySpinProps)
   }
 
   async function handleSpin() {
-    if (isSpinning || isProcessing || alreadySpun || !initData) return;
+    // FIXED: Prevent multiple spins and only call API once
+    if (isSpinning || isProcessing || alreadySpun || spinAttempted || !initData) return;
 
     setIsProcessing(true);
     setIsSpinning(true);
-    const spins = 8;
-    const extraDeg = Math.random() * 360;
-    const finalRotation = spins * 360 + extraDeg;
+    setSpinAttempted(true);
 
-    let currentRotation = rotation;
-    const duration = 3000;
-    const startTime = Date.now();
-
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-
-      // Easing function for smooth deceleration
-      const easeProgress = 1 - Math.pow(1 - progress, 3);
-      currentRotation = rotation + finalRotation * easeProgress;
-
-      setRotation(currentRotation);
-
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        setIsSpinning(false);
-
-        // Determine winning option
-        const sliceAngle = 360 / SPIN_OPTIONS.length;
-        const normalizedRotation = (360 - (currentRotation % 360)) % 360;
-        const winningIndex = Math.floor(normalizedRotation / sliceAngle) % SPIN_OPTIONS.length;
-        setLastWin(SPIN_OPTIONS[winningIndex]);
-
-        // Send spin result to backend
-        submitSpin();
-
-        // Haptic feedback
-        if ((window as any).Telegram?.WebApp) {
-          (window as any).Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-        }
-      }
-    };
-
-    requestAnimationFrame(animate);
-  }
-
-  async function submitSpin() {
-    if (!initData) return;
     try {
+      // Call the API ONCE before starting animation
       const result = await dailySpin(initData);
-      if (result.success) {
+      
+      if (result.already_spun) {
         setAlreadySpun(true);
-        if (onSpinSuccess) {
-          onSpinSuccess(result.user);
+        setIsSpinning(false);
+        setIsProcessing(false);
+        return;
+      }
+
+      if (!result.success) {
+        setIsSpinning(false);
+        setIsProcessing(false);
+        return;
+      }
+
+      // Animation
+      const spins = 8;
+      const extraDeg = Math.random() * 360;
+      const finalRotation = spins * 360 + extraDeg;
+
+      let currentRotation = rotation;
+      const duration = 3000;
+      const startTime = Date.now();
+
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Easing function for smooth deceleration
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        currentRotation = rotation + finalRotation * easeProgress;
+
+        setRotation(currentRotation);
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          setIsSpinning(false);
+
+          // Determine winning option
+          const sliceAngle = 360 / SPIN_OPTIONS.length;
+          const normalizedRotation = (360 - (currentRotation % 360)) % 360;
+          const winningIndex = Math.floor(normalizedRotation / sliceAngle) % SPIN_OPTIONS.length;
+          setLastWin(SPIN_OPTIONS[winningIndex]);
+
+          // Update user data from API response
+          setAlreadySpun(true);
+          if (onSpinSuccess && result.user) {
+            onSpinSuccess(result.user);
+          }
+
+          setIsProcessing(false);
+
+          // Haptic feedback
+          if ((window as any).Telegram?.WebApp) {
+            (window as any).Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+          }
         }
-      } else if (result.already_spun) {
+      };
+
+      requestAnimationFrame(animate);
+    } catch (error: any) {
+      console.error('Failed to spin:', error);
+      setIsSpinning(false);
+      setIsProcessing(false);
+      
+      // Check if error indicates already spun
+      if (error.message?.includes('already') || error.message?.includes('today')) {
         setAlreadySpun(true);
       }
-    } catch (error) {
-      console.error('Failed to submit spin:', error);
-    } finally {
-      setIsProcessing(false);
     }
   }
 
@@ -201,14 +210,22 @@ export function DailySpin({ open, onOpenChange, onSpinSuccess }: DailySpinProps)
           </div>
         )}
 
+        {alreadySpun && !lastWin && (
+          <div className="bg-yellow-100 dark:bg-yellow-900 rounded-lg p-4 text-center">
+            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+              لقد قمت بالسحب اليوم! عد غداً 🎰
+            </p>
+          </div>
+        )}
+
         <div className="flex gap-3">
           <Button
             onClick={handleSpin}
-            disabled={isSpinning}
-            className="flex-1 bg-gradient-to-r from-primary to-accent hover:shadow-lg"
+            disabled={isSpinning || alreadySpun || spinAttempted}
+            className="flex-1 bg-gradient-to-r from-primary to-accent hover:shadow-lg disabled:opacity-50"
             size="lg"
           >
-            {isSpinning ? '⏳ يدور...' : '🎡 ادر العجلة'}
+            {isSpinning ? '⏳ يدور...' : alreadySpun ? '✓ تم السحب' : '🎡 ادر العجلة'}
           </Button>
           <Button
             onClick={() => onOpenChange(false)}
