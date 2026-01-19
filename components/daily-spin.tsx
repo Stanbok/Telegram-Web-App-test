@@ -3,25 +3,48 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useTelegram } from '@/lib/telegram-provider';
+import { dailySpin } from '@/lib/api-client';
 
 interface DailySpinProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSpinSuccess?: (userData: any) => void;
 }
 
 const SPIN_OPTIONS = [10, 50, 100, 250, 500, 15, 75, 200];
 
-export function DailySpin({ open, onOpenChange }: DailySpinProps) {
+export function DailySpin({ open, onOpenChange, onSpinSuccess }: DailySpinProps) {
+  const { initData } = useTelegram();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSpinning, setIsSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [lastWin, setLastWin] = useState<number | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [alreadySpun, setAlreadySpun] = useState(false);
 
   useEffect(() => {
     if (open) {
       drawWheel();
+      // Check if already spun today by trying to spin
+      checkIfAlreadySpun();
     }
   }, [open]);
+
+  async function checkIfAlreadySpun() {
+    if (!initData) return;
+    try {
+      // Try to spin - if it fails with "already spun" message, set alreadySpun to true
+      const result = await dailySpin(initData);
+      if (result.already_spun) {
+        setAlreadySpun(true);
+      }
+    } catch (error: any) {
+      if (error.message?.includes('already') || error.message?.includes('today')) {
+        setAlreadySpun(true);
+      }
+    }
+  }
 
   function drawWheel() {
     if (!canvasRef.current) return;
@@ -82,9 +105,10 @@ export function DailySpin({ open, onOpenChange }: DailySpinProps) {
     ctx.fill();
   }
 
-  function handleSpin() {
-    if (isSpinning) return;
+  async function handleSpin() {
+    if (isSpinning || isProcessing || alreadySpun || !initData) return;
 
+    setIsProcessing(true);
     setIsSpinning(true);
     const spins = 8;
     const extraDeg = Math.random() * 360;
@@ -115,6 +139,9 @@ export function DailySpin({ open, onOpenChange }: DailySpinProps) {
         const winningIndex = Math.floor(normalizedRotation / sliceAngle) % SPIN_OPTIONS.length;
         setLastWin(SPIN_OPTIONS[winningIndex]);
 
+        // Send spin result to backend
+        submitSpin();
+
         // Haptic feedback
         if ((window as any).Telegram?.WebApp) {
           (window as any).Telegram.WebApp.HapticFeedback.notificationOccurred('success');
@@ -123,6 +150,25 @@ export function DailySpin({ open, onOpenChange }: DailySpinProps) {
     };
 
     requestAnimationFrame(animate);
+  }
+
+  async function submitSpin() {
+    if (!initData) return;
+    try {
+      const result = await dailySpin(initData);
+      if (result.success) {
+        setAlreadySpun(true);
+        if (onSpinSuccess) {
+          onSpinSuccess(result.user);
+        }
+      } else if (result.already_spun) {
+        setAlreadySpun(true);
+      }
+    } catch (error) {
+      console.error('Failed to submit spin:', error);
+    } finally {
+      setIsProcessing(false);
+    }
   }
 
   if (!open) return null;
