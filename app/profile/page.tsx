@@ -98,11 +98,11 @@ export default function ProfilePage() {
           {userData?.username && (
             <p className="text-sm text-muted-foreground">@{userData.username}</p>
           )}
-          <div className="mt-3">
-            <span className="inline-block bg-accent text-accent-foreground px-4 py-1 rounded-full text-sm font-semibold">
-              المستوى {userData?.level} 🏆
-            </span>
-          </div>
+        <div className="mt-3">
+          <span className="inline-block bg-accent text-accent-foreground px-4 py-1 rounded-full text-sm font-semibold">
+            المستوى {Math.floor(Number(userData?.level) || 0)} 🏆
+          </span>
+        </div>
         </div>
 
         {/* Stats Grid */}
@@ -115,10 +115,10 @@ export default function ProfilePage() {
             <p className="text-2xl font-bold text-secondary mb-1">{userData?.referrals}</p>
             <p className="text-xs text-muted-foreground">الإحالات</p>
           </Card>
-          <Card className="p-4 text-center">
-            <p className="text-2xl font-bold text-accent mb-1">{userData?.streak}</p>
-            <p className="text-xs text-muted-foreground">الستريك 🔥</p>
-          </Card>
+        <Card className="p-4 text-center">
+          <p className="text-2xl font-bold text-accent mb-1">{Math.floor(Number(userData?.streak) || 0)}</p>
+          <p className="text-xs text-muted-foreground">الستريك 🔥</p>
+        </Card>
           <Card className="p-4 text-center">
             <p className="text-2xl font-bold text-blue-500 mb-1">
               {userData?.join_date
