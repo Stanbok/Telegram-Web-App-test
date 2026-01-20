@@ -11,7 +11,7 @@ import {
   checkTask,
   playGame,
   getUser,
-} from '@/lib/api-client-v2';
+} from '@/lib/api-client';
 import { ContentType, Network, Task, Game, Survey, UserData } from '@/lib/types';
 import { BottomNav } from '@/components/bottom-nav';
 import { NetworkSection } from '@/components/network-section';
