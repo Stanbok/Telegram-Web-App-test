@@ -15,9 +15,7 @@ import {
   TaskCheckResponse,
 } from './types';
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  'https://dracodev.pythonanywhere.com/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://dracodev.pythonanywhere.com/api';
 
 export async function apiCall<T>(
   endpoint: string,
@@ -105,7 +103,7 @@ export async function getTasks(
 
   const queryString = params.toString();
   const endpoint = queryString ? `/tasks?${queryString}` : '/tasks';
-
+  
   return apiCall(endpoint, 'GET', null, initData);
 }
 
@@ -140,9 +138,7 @@ export async function getUserTaskAttempts(
   initData: string,
   status?: string
 ): Promise<TaskAttempt[]> {
-  const endpoint = status
-    ? `/user/attempts?status=${status}`
-    : '/user/attempts';
+  const endpoint = status ? `/user/attempts?status=${status}` : '/user/attempts';
   return apiCall(endpoint, 'GET', null, initData);
 }
 
@@ -165,7 +161,7 @@ export async function getGames(
 
   const queryString = params.toString();
   const endpoint = queryString ? `/games?${queryString}` : '/games';
-
+  
   return apiCall(endpoint, 'GET', null, initData);
 }
 
@@ -207,7 +203,7 @@ export async function getSurveys(
 
   const queryString = params.toString();
   const endpoint = queryString ? `/surveys?${queryString}` : '/surveys';
-
+  
   return apiCall(endpoint, 'GET', null, initData);
 }
 
@@ -298,17 +294,10 @@ export async function getPointsHistory(
   limit: number = 50,
   offset: number = 0
 ) {
-  return apiCall(
-    `/history?limit=${limit}&offset=${offset}`,
-    'GET',
-    null,
-    initData
-  );
+  return apiCall(`/history?limit=${limit}&offset=${offset}`, 'GET', null, initData);
 }
 
-/* =====================================================
-   ============== ADMIN ENDPOINTS ======================
-   ===================================================== */
+// ============== ADMIN ENDPOINTS ==============
 
 // الحصول على إحصائيات الأدمن
 export async function getAdminStats(initData: string) {
@@ -326,11 +315,7 @@ export async function createTask(initData: string, taskData: any) {
 }
 
 // تحديث مهمة
-export async function updateTask(
-  initData: string,
-  taskId: string,
-  taskData: any
-) {
+export async function updateTask(initData: string, taskId: string, taskData: any) {
   return apiCall(`/admin/tasks/${taskId}`, 'PUT', taskData, initData);
 }
 
@@ -350,11 +335,7 @@ export async function createNetwork(initData: string, networkData: any) {
 }
 
 // تحديث شبكة
-export async function updateNetwork(
-  initData: string,
-  networkId: string,
-  networkData: any
-) {
+export async function updateNetwork(initData: string, networkId: string, networkData: any) {
   return apiCall(`/admin/networks/${networkId}`, 'PUT', networkData, initData);
 }
 
@@ -364,39 +345,16 @@ export async function deleteNetwork(initData: string, networkId: string) {
 }
 
 // الحصول على جميع المستخدمين (للأدمن)
-export async function getAllUsers(
-  initData: string,
-  page: number = 1,
-  pageSize: number = 50
-) {
-  return apiCall(
-    `/admin/users?page=${page}&pageSize=${pageSize}`,
-    'GET',
-    null,
-    initData
-  );
+export async function getAllUsers(initData: string, page: number = 1, pageSize: number = 50) {
+  return apiCall(`/admin/users?page=${page}&pageSize=${pageSize}`, 'GET', null, initData);
 }
 
 // تحديث نقاط مستخدم
-export async function updateUserPoints(
-  initData: string,
-  userId: number,
-  points: number
-) {
-  return apiCall(
-    '/admin/user/points',
-    'PUT',
-    { user_id: userId, points },
-    initData
-  );
+export async function updateUserPoints(initData: string, userId: number, points: number) {
+  return apiCall('/admin/user/points', 'PUT', { user_id: userId, points }, initData);
 }
 
-// حظر / إلغاء حظر مستخدم
+// حظر/إلغاء حظر مستخدم
 export async function toggleUserBan(initData: string, userId: number) {
-  return apiCall(
-    '/admin/user/ban',
-    'POST',
-    { user_id: userId },
-    initData
-  );
+  return apiCall('/admin/user/ban', 'POST', { user_id: userId }, initData);
 }
