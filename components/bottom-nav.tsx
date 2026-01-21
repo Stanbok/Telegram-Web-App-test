@@ -20,16 +20,15 @@ export function BottomNav() {
     { href: '/shop', label: 'المتجر', icon: '🛒' },
   ];
 
-  // إضافة علامة تبويب الأدمن فقط إذا كان المستخدم هو الأدمن
-  const navItems = user?.id === ADMIN_ID 
+  // Add admin tab for admin user
+  const navItems = user?.id === ADMIN_ID
     ? [
         ...baseNavItems.slice(0, 2),
-        { href: '/admin', label: 'الأدمن', icon: '🔧' },
+        { href: '/admin', label: 'الأدمن', icon: '⚙️' },
         ...baseNavItems.slice(2)
       ]
     : baseNavItems;
 
-  // حساب عرض كل عنصر بناءً على عدد العناصر
   const itemWidth = user?.id === ADMIN_ID ? 'w-1/6' : 'w-1/5';
 
   return (
