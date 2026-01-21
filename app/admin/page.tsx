@@ -1,886 +1,388 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTelegram } from '@/lib/telegram-provider';
-import { cn } from '@/lib/utils';
-import { BottomNav } from '@/components/bottom-nav';
+import { TASK_TEMPLATES } from '@/lib/task-templates';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  getAdminStats, 
-  getAllTasks, 
-  createTask, 
-  updateTask, 
-  deleteTask,
-  getAllNetworks,
-  createNetwork,
-  updateNetwork,
-  deleteNetwork
-} from '@/lib/api-client';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertCircle, Plus, Edit2, Trash2, CheckCircle2 } from 'lucide-react';
 
 const ADMIN_ID = 8005837232;
 
-interface AdminStats {
-  totalUsers: number;
-  totalReferrals: number;
-  totalTasks: number;
-  completedTasks: {
-    follow: number;
-    comment: number;
-    watch: number;
-    join: number;
-    other: number;
-  };
-  activeUsers24h: number;
-  activeUsers7d: number;
-  totalPoints: number;
-  avgPointsPerUser: number;
-}
-
-interface Task {
-  id: string;
-  network_id: string;
+interface TaskData {
+  id?: string;
   type: string;
   title: string;
   description: string;
   points: number;
-  target_url: string;
-  active: number;
+  targetUrl: string;
+  active: boolean;
 }
 
-interface Network {
+interface Task extends TaskData {
   id: string;
-  name: string;
-  type: string;
-  logo: string;
-  description: string;
-  priority: number;
-  active: number;
+  networkId: string;
 }
 
 export default function AdminPage() {
-  const { user, initData, isReady } = useTelegram();
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<AdminStats | null>(null);
+  const { user, initData } = useTelegram();
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [networks, setNetworks] = useState<Network[]>([]);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [selectedNetwork, setSelectedNetwork] = useState<Network | null>(null);
-  const [showTaskForm, setShowTaskForm] = useState(false);
-  const [showNetworkForm, setShowNetworkForm] = useState(false);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  // Task type mapping from form values to API values
-  const taskTypeMap: Record<string, string> = {
-    'follow': 'facebook_follow',
-    'comment': 'youtube_comment',
-    'watch': 'youtube_watch',
-    'join': 'telegram_join',
-    'other': 'website_visit'
-  };
-
-  // نموذج المهمة
-  const [taskForm, setTaskForm] = useState({
-    network_id: '',
-    type: 'follow',
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<TaskData>({
+    type: 'ad_view',
     title: '',
     description: '',
     points: 0,
-    target_url: '',
-    active: 1
+    targetUrl: '',
+    active: true,
   });
 
-  // نموذج الشبكة
-  const [networkForm, setNetworkForm] = useState({
-    id: '',
-    name: '',
-    type: 'social',
-    logo: '',
-    description: '',
-    priority: 0,
-    active: 1
-  });
-
+  // Check authorization on mount
   useEffect(() => {
-    if (isReady && initData && user) {
-      // التحقق من أن المستخدم هو الأدمن
-      if (user.id !== ADMIN_ID) {
-        setLoading(false);
-        return;
-      }
-      loadAdminData();
+    if (user?.id === ADMIN_ID) {
+      setIsAuthorized(true);
+      loadTasks();
+    } else {
+      setError('لا توجد صلاحيات كافية للوصول إلى صفحة الأدمن');
+      setLoading(false);
     }
-  }, [isReady, initData, user]);
+  }, [user]);
 
-  async function loadAdminData() {
+  // Load tasks from database
+  const loadTasks = async () => {
     try {
-      if (!initData) {
-        console.log('[v0] initData not available for loading admin data');
-        setLoading(false);
-        return;
-      }
-      
-      console.log('[v0] Starting to load admin data...');
-      
-      // Load all data - this will throw if any endpoint fails
-      const [statsData, tasksData, networksData] = await Promise.all([
-        getAdminStats(initData),
-        getAllTasks(initData),
-        getAllNetworks(initData)
-      ]);
-      
-      console.log('[v0] Data loaded successfully:', {
-        stats: statsData,
-        tasksCount: tasksData?.length || 0,
-        networksCount: networksData?.length || 0
-      });
-      
-      // Update state with the fetched data
-      setStats(statsData || null);
-      setTasks(Array.isArray(tasksData) ? tasksData : []);
-      setNetworks(Array.isArray(networksData) ? networksData : []);
-      
-      showNotification('تم تحميل البيانات بنجاح', 'success');
-    } catch (error) {
-      console.error('[v0] Failed to load admin data:', error);
-      const errorMessage = error instanceof Error ? error.message : 'فشل تحميل بيانات الأدمن';
-      showNotification(errorMessage, 'error');
+      setLoading(true);
+      const response = await fetch('/api/tasks');
+      if (!response.ok) throw new Error('Failed to load tasks');
+      const data = await response.json();
+      setTasks(data.tasks || []);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load tasks';
+      console.error('[Admin] Load error:', errorMsg);
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  async function handleCreateTask() {
-    if (!initData) {
-      console.log('[v0] initData not available');
-      showNotification('بيانات المستخدم غير متاحة', 'error');
-      return;
-    }
-    
-    // Validate required fields
-    if (!taskForm.network_id || !taskForm.title || !taskForm.description || taskForm.points === 0 || !taskForm.target_url) {
-      showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
-      return;
-    }
-    
+  // Save task (create or update)
+  const handleSaveTask = async () => {
     try {
-      // Map the task type to the API value
-      const mappedTaskData = {
-        ...taskForm,
-        type: taskTypeMap[taskForm.type] || taskForm.type
+      // Validate required fields
+      if (!formData.type || !formData.title || !formData.points || !formData.targetUrl) {
+        setError('يرجى ملء جميع الحقول المطلوبة');
+        return;
+      }
+
+      if (formData.points <= 0) {
+        setError('النقاط يجب أن تكون أكبر من 0');
+        return;
+      }
+
+      const payload = {
+        ...formData,
+        targetUrl: formData.targetUrl,
       };
-      
-      console.log('[v0] Creating task with data:', mappedTaskData);
-      await createTask(initData, mappedTaskData);
-      showNotification('تم إنشاء المهمة بنجاح', 'success');
-      setShowTaskForm(false);
-      resetTaskForm();
-      loadAdminData();
-    } catch (error) {
-      console.error('[v0] Failed to create task:', error);
-      const errorMessage = error instanceof Error ? error.message : 'فشل إنشاء المهمة';
-      showNotification(errorMessage, 'error');
-    }
-  }
 
-  async function handleUpdateTask() {
-    if (!initData || !selectedTask) {
-      console.log('[v0] Missing initData or selectedTask');
-      return;
+      if (editingId) {
+        // Update existing task
+        const response = await fetch(`/api/tasks/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) throw new Error('Failed to update task');
+        setError('');
+        loadTasks();
+      } else {
+        // Create new task
+        const response = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) throw new Error('Failed to create task');
+        setError('');
+        loadTasks();
+      }
+
+      setShowForm(false);
+      setEditingId(null);
+      resetForm();
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Error saving task';
+      console.error('[Admin] Save error:', errorMsg);
+      setError(errorMsg);
     }
-    
-    // Validate required fields
-    if (!taskForm.network_id || !taskForm.title || !taskForm.description || taskForm.points === 0 || !taskForm.target_url) {
-      showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
-      return;
-    }
-    
+  };
+
+  // Delete task
+  const handleDeleteTask = async (taskId: string) => {
+    if (!confirm('Are you sure you want to delete this task?')) return;
+
     try {
-      // Map the task type to the API value
-      const mappedTaskData = {
-        ...taskForm,
-        type: taskTypeMap[taskForm.type] || taskForm.type
-      };
-      
-      console.log('[v0] Updating task with id:', selectedTask.id);
-      await updateTask(initData, selectedTask.id, mappedTaskData);
-      showNotification('تم تحديث المهمة بنجاح', 'success');
-      setSelectedTask(null);
-      setShowTaskForm(false);
-      resetTaskForm();
-      loadAdminData();
-    } catch (error) {
-      console.error('[v0] Failed to update task:', error);
-      const errorMessage = error instanceof Error ? error.message : 'فشل تحديث المهمة';
-      showNotification(errorMessage, 'error');
+      const response = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete task');
+      loadTasks();
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Error deleting task';
+      console.error('[Admin] Delete error:', errorMsg);
+      setError(errorMsg);
     }
-  }
+  };
 
-  async function handleDeleteTask(taskId: string) {
-    if (!initData) return;
-    if (!confirm('هل أنت متأكد من حذف هذه المهمة؟')) return;
-    
-    try {
-      await deleteTask(initData, taskId);
-      showNotification('تم حذف المهمة بنجاح', 'success');
-      loadAdminData();
-    } catch (error) {
-      showNotification('فشل حذف المهمة', 'error');
-    }
-  }
-
-  async function handleCreateNetwork() {
-    if (!initData) {
-      console.log('[v0] initData not available');
-      showNotification('بيانات المستخدم غير متاحة', 'error');
-      return;
-    }
-    
-    // Validate required fields
-    if (!networkForm.id || !networkForm.name || !networkForm.description) {
-      showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
-      return;
-    }
-    
-    try {
-      console.log('[v0] Creating network with data:', networkForm);
-      await createNetwork(initData, networkForm);
-      showNotification('تم إنشاء الشبكة بنجاح', 'success');
-      setShowNetworkForm(false);
-      resetNetworkForm();
-      loadAdminData();
-    } catch (error) {
-      console.error('[v0] Failed to create network:', error);
-      const errorMessage = error instanceof Error ? error.message : 'فشل إنشاء الشبكة';
-      showNotification(errorMessage, 'error');
-    }
-  }
-
-  async function handleUpdateNetwork() {
-    if (!initData || !selectedNetwork) return;
-    try {
-      await updateNetwork(initData, selectedNetwork.id, networkForm);
-      showNotification('تم تحديث الشبكة بنجاح', 'success');
-      setSelectedNetwork(null);
-      setShowNetworkForm(false);
-      resetNetworkForm();
-      loadAdminData();
-    } catch (error) {
-      showNotification('فشل تحديث الشبكة', 'error');
-    }
-  }
-
-  async function handleDeleteNetwork(networkId: string) {
-    if (!initData) return;
-    if (!confirm('هل أنت متأكد من حذف هذه الشبكة؟ سيتم حذف جميع المهام المرتبطة بها.')) return;
-    
-    try {
-      await deleteNetwork(initData, networkId);
-      showNotification('تم حذف الشبكة بنجاح', 'success');
-      loadAdminData();
-    } catch (error) {
-      showNotification('فشل حذف الشبكة', 'error');
-    }
-  }
-
-  function resetTaskForm() {
-    setTaskForm({
-      network_id: '',
-      type: 'follow',
-      title: '',
-      description: '',
-      points: 0,
-      target_url: '',
-      active: 1
-    });
-  }
-
-  function resetNetworkForm() {
-    setNetworkForm({
-      id: '',
-      name: '',
-      type: 'social',
-      logo: '',
-      description: '',
-      priority: 0,
-      active: 1
-    });
-  }
-
-  function editTask(task: Task) {
-    setSelectedTask(task);
-    setTaskForm({
-      network_id: task.network_id,
+  // Edit task
+  const handleEditTask = (task: Task) => {
+    setFormData({
       type: task.type,
       title: task.title,
       description: task.description,
       points: task.points,
-      target_url: task.target_url,
-      active: task.active
+      targetUrl: task.targetUrl,
+      active: task.active,
     });
-    setShowTaskForm(true);
-  }
+    setEditingId(task.id);
+    setShowForm(true);
+  };
 
-  function editNetwork(network: Network) {
-    setSelectedNetwork(network);
-    setNetworkForm({
-      id: network.id,
-      name: network.name,
-      type: network.type,
-      logo: network.logo,
-      description: network.description,
-      priority: network.priority,
-      active: network.active
+  // Reset form
+  const resetForm = () => {
+    setFormData({
+      type: 'ad_view',
+      title: '',
+      description: '',
+      points: 0,
+      targetUrl: '',
+      active: true,
     });
-    setShowNetworkForm(true);
-  }
+    setEditingId(null);
+  };
 
-  function showNotification(message: string, type: 'success' | 'error') {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
-  }
-
-  if (loading) {
+  if (!isAuthorized) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">جاري التحميل...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // التحقق من صلاحيات الأدمن
-  if (!user || user.id !== ADMIN_ID) {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <Card className="text-center p-6">
-          <p className="text-destructive text-5xl mb-4">⛔</p>
-          <p className="font-semibold text-xl mb-2">غير مصرح</p>
-          <p className="text-sm text-muted-foreground">
-            ليس لديك صلاحيات للوصول إلى هذه الصفحة
-          </p>
-        </Card>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-red-50 to-white p-4">
+        <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+        <h1 className="text-2xl font-bold mb-2">الوصول مرفوض</h1>
+        <p className="text-gray-600">{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="pb-24 bg-background min-h-screen">
-      {/* Notification */}
-      {notification && (
-        <div
-          className={cn(
-            'fixed top-4 right-4 left-4 p-4 rounded-lg text-white z-50 shadow-lg',
-            notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-          )}
-        >
-          {notification.message}
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pb-24">
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <h1 className="text-3xl font-bold text-gray-900">لوحة التحكم الإدارية</h1>
+          <p className="text-gray-600 mt-1">إدارة جميع أنواع المهام</p>
         </div>
-      )}
-
-      {/* Header */}
-      <div className="sticky top-0 bg-gradient-to-b from-purple-600 to-purple-800 text-white p-4 z-40 shadow-md">
-        <h1 className="text-2xl font-bold">🔧 لوحة تحكم الأدمن</h1>
-        <p className="text-sm opacity-90">إدارة البوت والمستخدمين</p>
       </div>
 
-      {/* Main Content */}
-      <div className="p-4">
-        <Tabs defaultValue="stats" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="stats">📊 الإحصائيات</TabsTrigger>
-            <TabsTrigger value="tasks">🎯 المهام</TabsTrigger>
-            <TabsTrigger value="networks">🌐 الشبكات</TabsTrigger>
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+
+        <Tabs defaultValue="list" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="list">المهام ({tasks.length})</TabsTrigger>
+            <TabsTrigger value="create">
+              <Plus className="w-4 h-4 mr-2" />
+              إضافة مهمة جديدة
+            </TabsTrigger>
           </TabsList>
 
-          {/* الإحصائيات */}
-          <TabsContent value="stats" className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <Card className="p-4">
-                <div className="text-xs text-muted-foreground mb-1">إجمالي المستخدمين</div>
-                <div className="text-3xl font-bold text-primary">{stats?.totalUsers || 0}</div>
-              </Card>
-              <Card className="p-4">
-                <div className="text-xs text-muted-foreground mb-1">إجمالي الإحالات</div>
-                <div className="text-3xl font-bold text-green-600">{stats?.totalReferrals || 0}</div>
-              </Card>
-              <Card className="p-4">
-                <div className="text-xs text-muted-foreground mb-1">نشطين (24 ساعة)</div>
-                <div className="text-3xl font-bold text-blue-600">{stats?.activeUsers24h || 0}</div>
-              </Card>
-              <Card className="p-4">
-                <div className="text-xs text-muted-foreground mb-1">نشطين (7 أيام)</div>
-                <div className="text-3xl font-bold text-purple-600">{stats?.activeUsers7d || 0}</div>
-              </Card>
-            </div>
-
-            <Card className="p-4">
-              <h3 className="font-semibold mb-3">📈 إحصائيات النقاط</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">إجمالي النقاط</span>
-                  <span className="font-semibold">{stats?.totalPoints?.toFixed(0) || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">متوسط النقاط لكل مستخدم</span>
-                  <span className="font-semibold">{stats?.avgPointsPerUser?.toFixed(2) || 0}</span>
-                </div>
+          {/* Tasks List Tab */}
+          <TabsContent value="list" className="space-y-4">
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
-            </Card>
-
-            <Card className="p-4">
-              <h3 className="font-semibold mb-3">✅ المهام المكتملة حسب النوع</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">👥 متابعة</span>
-                  <Badge variant="secondary">{stats?.completedTasks?.follow || 0}</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">💬 تعليق</span>
-                  <Badge variant="secondary">{stats?.completedTasks?.comment || 0}</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">📺 مشاهدة</span>
-                  <Badge variant="secondary">{stats?.completedTasks?.watch || 0}</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">🔗 انضمام</span>
-                  <Badge variant="secondary">{stats?.completedTasks?.join || 0}</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">🎯 أخرى</span>
-                  <Badge variant="secondary">{stats?.completedTasks?.other || 0}</Badge>
-                </div>
-              </div>
-            </Card>
-          </TabsContent>
-
-          {/* إدارة المهام */}
-          <TabsContent value="tasks" className="space-y-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">إدارة المهام ({tasks.length})</h2>
-              <Button 
-                onClick={() => {
-                  resetTaskForm();
-                  setSelectedTask(null);
-                  setShowTaskForm(true);
-                }}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                ➕ إضافة مهمة
-              </Button>
-            </div>
-
-            {showTaskForm && (
-              <Card className="p-4 space-y-4 border-2 border-primary">
-                <h3 className="font-semibold">
-                  {selectedTask ? '✏️ تعديل المهمة' : '➕ مهمة جديدة'}
-                </h3>
-                
-                <div className="space-y-3">
-                  <div>
-                    <Label>الشبكة</Label>
-                    <Select 
-                      value={taskForm.network_id}
-                      onValueChange={(value) => setTaskForm({...taskForm, network_id: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="اختر الشبكة" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {networks.map(network => (
-                          <SelectItem key={network.id} value={network.id}>
-                            {network.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label>نوع المهمة</Label>
-                    <Select 
-                      value={taskForm.type}
-                      onValueChange={(value) => setTaskForm({...taskForm, type: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="follow">👥 متابعة</SelectItem>
-                        <SelectItem value="comment">💬 تعليق</SelectItem>
-                        <SelectItem value="watch">📺 مشاهدة</SelectItem>
-                        <SelectItem value="join">🔗 انضمام</SelectItem>
-                        <SelectItem value="other">🎯 أخرى</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label>العنوان</Label>
-                    <Input 
-                      value={taskForm.title}
-                      onChange={(e) => setTaskForm({...taskForm, title: e.target.value})}
-                      placeholder="عنوان المهمة"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>الوصف</Label>
-                    <Textarea 
-                      value={taskForm.description}
-                      onChange={(e) => setTaskForm({...taskForm, description: e.target.value})}
-                      placeholder="وصف المهمة"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>النقاط</Label>
-                    <Input 
-                      type="number"
-                      value={taskForm.points}
-                      onChange={(e) => setTaskForm({...taskForm, points: parseFloat(e.target.value)})}
-                      placeholder="عدد النقاط"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>الرابط المستهدف</Label>
-                    <Input 
-                      value={taskForm.target_url}
-                      onChange={(e) => setTaskForm({...taskForm, target_url: e.target.value})}
-                      placeholder="https://..."
-                    />
-                  </div>
-
-                  <div>
-                    <Label>الحالة</Label>
-                    <Select 
-                      value={taskForm.active.toString()}
-                      onValueChange={(value) => setTaskForm({...taskForm, active: parseInt(value)})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">✅ نشطة</SelectItem>
-                        <SelectItem value="0">⏸️ متوقفة</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* حقول إضافية حسب نوع المهمة */}
-                  {taskForm.type === 'watch' && (
-                    <div>
-                      <Label>مدة المشاهدة المطلوبة (ثانية)</Label>
-                      <Input 
-                        type="number"
-                        value={taskForm.verification_data?.required_watch_time || ''}
-                        onChange={(e) => setTaskForm({
-                          ...taskForm, 
-                          verification_data: {
-                            ...taskForm.verification_data,
-                            required_watch_time: parseInt(e.target.value)
-                          }
-                        })}
-                        placeholder="60"
-                      />
-                    </div>
-                  )}
-
-                  {taskForm.type === 'comment' && (
-                    <div>
-                      <Label>كود التحقق (اختياري)</Label>
-                      <Input 
-                        value={taskForm.verification_data?.verification_code || ''}
-                        onChange={(e) => setTaskForm({
-                          ...taskForm, 
-                          verification_data: {
-                            ...taskForm.verification_data,
-                            verification_code: e.target.value
-                          }
-                        })}
-                        placeholder="كود التحقق"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={selectedTask ? handleUpdateTask : handleCreateTask}
-                    className="flex-1"
-                  >
-                    {selectedTask ? '💾 حفظ التعديلات' : '➕ إنشاء'}
-                  </Button>
-                  <Button 
-                    onClick={() => {
-                      setShowTaskForm(false);
-                      setSelectedTask(null);
-                      resetTaskForm();
-                    }}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    ❌ إلغاء
-                  </Button>
-                </div>
+            ) : tasks.length === 0 ? (
+              <Card className="p-8 text-center">
+                <p className="text-gray-500">لا توجد مهام بعد</p>
               </Card>
-            )}
-
-            {/* قائمة المهام */}
-            <div className="space-y-3">
-              {tasks.map(task => (
-                <Card key={task.id} className="p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold">{task.title}</h4>
-                        {task.active ? (
-                          <Badge className="bg-green-600">نشطة</Badge>
-                        ) : (
-                          <Badge variant="secondary">متوقفة</Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-2">{task.description}</p>
-                      <div className="flex gap-4 text-xs">
-                        <span className="text-muted-foreground">النوع: <strong>{getTaskTypeLabel(task.type)}</strong></span>
-                        <span className="text-muted-foreground">النقاط: <strong className="text-primary">{task.points}</strong></span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 mt-3">
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => editTask(task)}
-                      className="flex-1"
-                    >
-                      ✏️ تعديل
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="destructive"
-                      onClick={() => handleDeleteTask(task.id)}
-                      className="flex-1"
-                    >
-                      🗑️ حذف
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          {/* إدارة الشبكات */}
-          <TabsContent value="networks" className="space-y-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">إدارة الشبكات ({networks.length})</h2>
-              <Button 
-                onClick={() => {
-                  resetNetworkForm();
-                  setSelectedNetwork(null);
-                  setShowNetworkForm(true);
-                }}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                ➕ إضافة شبكة
-              </Button>
-            </div>
-
-            {showNetworkForm && (
-              <Card className="p-4 space-y-4 border-2 border-primary">
-                <h3 className="font-semibold">
-                  {selectedNetwork ? '✏️ تعديل الشبكة' : '➕ شبكة جديدة'}
-                </h3>
-                
-                <div className="space-y-3">
-                  <div>
-                    <Label>معرف الشبكة (ID)</Label>
-                    <Input 
-                      value={networkForm.id}
-                      onChange={(e) => setNetworkForm({...networkForm, id: e.target.value})}
-                      placeholder="youtube, telegram, etc."
-                      disabled={!!selectedNetwork}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>اسم الشبكة</Label>
-                    <Input 
-                      value={networkForm.name}
-                      onChange={(e) => setNetworkForm({...networkForm, name: e.target.value})}
-                      placeholder="YouTube, Telegram, etc."
-                    />
-                  </div>
-
-                  <div>
-                    <Label>نوع المحتوى</Label>
-                    <Select 
-                      value={networkForm.type}
-                      onValueChange={(value) => setNetworkForm({...networkForm, type: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="social">📱 شبكة اجتماعية</SelectItem>
-                        <SelectItem value="game">🎮 لعبة</SelectItem>
-                        <SelectItem value="survey">📋 استبيان</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label>شعار (URL أو Emoji)</Label>
-                    <Input 
-                      value={networkForm.logo}
-                      onChange={(e) => setNetworkForm({...networkForm, logo: e.target.value})}
-                      placeholder="https://... أو 📱"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>الوصف</Label>
-                    <Textarea 
-                      value={networkForm.description}
-                      onChange={(e) => setNetworkForm({...networkForm, description: e.target.value})}
-                      placeholder="وصف الشبكة"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>الأولوية (ترتيب العرض)</Label>
-                    <Input 
-                      type="number"
-                      value={networkForm.priority}
-                      onChange={(e) => setNetworkForm({...networkForm, priority: parseInt(e.target.value)})}
-                      placeholder="0"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>الحالة</Label>
-                    <Select 
-                      value={networkForm.active.toString()}
-                      onValueChange={(value) => setNetworkForm({...networkForm, active: parseInt(value)})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">✅ نشطة</SelectItem>
-                        <SelectItem value="0">⏸️ متوقفة</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={selectedNetwork ? handleUpdateNetwork : handleCreateNetwork}
-                    className="flex-1"
-                  >
-                    {selectedNetwork ? '💾 حفظ التعديلات' : '➕ إنشاء'}
-                  </Button>
-                  <Button 
-                    onClick={() => {
-                      setShowNetworkForm(false);
-                      setSelectedNetwork(null);
-                      resetNetworkForm();
-                    }}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    ❌ إلغاء
-                  </Button>
-                </div>
-              </Card>
-            )}
-
-            {/* قائمة الشبكات */}
-            <div className="space-y-3">
-              {networks.map(network => (
-                <Card key={network.id} className="p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="text-3xl">{network.logo}</div>
+            ) : (
+              tasks.map((task) => {
+                const template = TASK_TEMPLATES[task.type as any];
+                return (
+                  <Card key={task.id} className="p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-semibold">{network.name}</h4>
-                          {network.active ? (
-                            <Badge className="bg-green-600">نشطة</Badge>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-lg">{task.title}</h3>
+                          <Badge
+                            style={{
+                              backgroundColor: template?.colorScheme.primary,
+                              color: 'white',
+                            }}
+                          >
+                            {template?.name || task.type}
+                          </Badge>
+                          {task.active ? (
+                            <Badge variant="outline" className="border-green-500 text-green-700">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              نشط
+                            </Badge>
                           ) : (
-                            <Badge variant="secondary">متوقفة</Badge>
+                            <Badge variant="outline" className="border-gray-300 text-gray-600">
+                              معطل
+                            </Badge>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground mb-1">{network.description}</p>
-                        <div className="flex gap-4 text-xs">
-                          <span className="text-muted-foreground">النوع: <strong>{getNetworkTypeLabel(network.type)}</strong></span>
-                          <span className="text-muted-foreground">الأولوية: <strong>{network.priority}</strong></span>
+                        <p className="text-sm text-gray-600 mb-2">{task.description}</p>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="text-primary font-semibold">{task.points} نقطة</span>
+                          <span className="text-gray-500">{task.targetUrl}</span>
                         </div>
                       </div>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditTask(task)}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-red-300 text-red-600 hover:bg-red-50 bg-transparent"
+                          onClick={() => handleDeleteTask(task.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
+                  </Card>
+                );
+              })
+            )}
+          </TabsContent>
+
+          {/* Create/Edit Tab */}
+          <TabsContent value="create" className="space-y-4">
+            <Card className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="type">نوع المهمة *</Label>
+                  <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
+                    <SelectTrigger id="type" className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(TASK_TEMPLATES).map(([key, template]) => (
+                        <SelectItem key={key} value={key}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="title">العنوان *</Label>
+                  <Input
+                    id="title"
+                    placeholder="أدخل عنوان المهمة"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="description">الوصف</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="أدخل وصف المهمة"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="mt-1"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="points">النقاط *</Label>
+                    <Input
+                      id="points"
+                      type="number"
+                      placeholder="0"
+                      value={formData.points || ''}
+                      onChange={(e) => setFormData({ ...formData, points: parseFloat(e.target.value) || 0 })}
+                      className="mt-1"
+                      min="0"
+                      step="0.1"
+                    />
                   </div>
-                  <div className="flex gap-2 mt-3">
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => editNetwork(network)}
-                      className="flex-1"
-                    >
-                      ✏️ تعديل
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="destructive"
-                      onClick={() => handleDeleteNetwork(network.id)}
-                      className="flex-1"
-                    >
-                      🗑️ حذف
-                    </Button>
+
+                  <div>
+                    <Label htmlFor="active">الحالة</Label>
+                    <Select value={formData.active ? 'true' : 'false'} onValueChange={(v) => setFormData({ ...formData, active: v === 'true' })}>
+                      <SelectTrigger id="active" className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">نشط</SelectItem>
+                        <SelectItem value="false">معطل</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                </Card>
-              ))}
-            </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="targetUrl">رابط المهمة *</Label>
+                  <Input
+                    id="targetUrl"
+                    placeholder="https://example.com"
+                    value={formData.targetUrl}
+                    onChange={(e) => setFormData({ ...formData, targetUrl: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button onClick={handleSaveTask} className="flex-1">
+                    {editingId ? 'حفظ التغييرات' : 'إنشاء المهمة'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowForm(false);
+                      resetForm();
+                    }}
+                    className="flex-1"
+                  >
+                    إلغاء
+                  </Button>
+                </div>
+              </div>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Bottom Navigation */}
-      <BottomNav />
     </div>
   );
-}
-
-// Helper functions
-function getTaskTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    follow: '👥 متابعة',
-    comment: '💬 تعليق',
-    watch: '📺 مشاهدة',
-    join: '🔗 انضمام',
-    other: '🎯 أخرى'
-  };
-  return labels[type] || type;
-}
-
-function getNetworkTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    social: '📱 شبكة اجتماعية',
-    game: '🎮 لعبة',
-    survey: '📋 استبيان'
-  };
-  return labels[type] || type;
 }
