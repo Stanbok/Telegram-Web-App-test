@@ -306,7 +306,17 @@ export async function getAdminStats(initData: string) {
 
 // الحصول على جميع المهام (للأدمن)
 export async function getAllTasks(initData: string) {
-  return apiCall('/admin/tasks', 'GET', null, initData);
+  try {
+    const response = await apiCall('/admin/tasks', 'GET', null, initData);
+    // Handle both array format and new object format
+    if (Array.isArray(response)) {
+      return response;
+    }
+    return response.tasks || [];
+  } catch (error) {
+    console.error('[API] Failed to get all tasks:', error);
+    throw error;
+  }
 }
 
 // إنشاء مهمة جديدة
@@ -326,7 +336,17 @@ export async function deleteTask(initData: string, taskId: string) {
 
 // الحصول على جميع الشبكات (للأدمن)
 export async function getAllNetworks(initData: string) {
-  return apiCall('/admin/networks', 'GET', null, initData);
+  try {
+    const response = await apiCall('/admin/networks', 'GET', null, initData);
+    // Handle both array format and new object format
+    if (Array.isArray(response)) {
+      return response;
+    }
+    return response.networks || [];
+  } catch (error) {
+    console.error('[API] Failed to get all networks:', error);
+    throw error;
+  }
 }
 
 // إنشاء شبكة جديدة
