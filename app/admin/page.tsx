@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useTelegram } from '@/lib/telegram-provider';
+import { cn } from '@/lib/utils';
 import { BottomNav } from '@/components/bottom-nav';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -113,41 +114,88 @@ export default function AdminPage() {
 
   async function loadAdminData() {
     try {
-      if (!initData) return;
+      if (!initData) {
+        console.log('[v0] initData not available for loading admin data');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('[v0] Starting to load admin data...');
       
       const [statsData, tasksData, networksData] = await Promise.all([
-        getAdminStats(initData),
-        getAllTasks(initData),
-        getAllNetworks(initData)
+        getAdminStats(initData).catch(err => {
+          console.error('[v0] Failed to load stats:', err);
+          return null;
+        }),
+        getAllTasks(initData).catch(err => {
+          console.error('[v0] Failed to load tasks:', err);
+          return [];
+        }),
+        getAllNetworks(initData).catch(err => {
+          console.error('[v0] Failed to load networks:', err);
+          return [];
+        })
       ]);
       
-      setStats(statsData);
-      setTasks(tasksData);
-      setNetworks(networksData);
+      console.log('[v0] Admin data loaded:', { statsData, tasksData: tasksData?.length || 0, networksData: networksData?.length || 0 });
+      
+      if (statsData) setStats(statsData);
+      if (tasksData) setTasks(tasksData);
+      if (networksData) setNetworks(networksData);
+      
+      if (!statsData || !tasksData || !networksData) {
+        showNotification('تم تحميل بعض البيانات بنجاح لكن توجد أخطاء في جزء منها', 'error');
+      }
     } catch (error) {
-      console.error('Failed to load admin data:', error);
-      showNotification('فشل تحميل بيانات الأدمن', 'error');
+      console.error('[v0] Failed to load admin data:', error);
+      const errorMessage = error instanceof Error ? error.message : 'فشل تحميل بيانات الأدمن';
+      showNotification(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
   }
 
   async function handleCreateTask() {
-    if (!initData) return;
+    if (!initData) {
+      console.log('[v0] initData not available');
+      showNotification('بيانات المستخدم غير متاحة', 'error');
+      return;
+    }
+    
+    // Validate required fields
+    if (!taskForm.network_id || !taskForm.title || !taskForm.description || taskForm.points === 0 || !taskForm.target_url) {
+      showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
+      return;
+    }
+    
     try {
+      console.log('[v0] Creating task with data:', taskForm);
       await createTask(initData, taskForm);
       showNotification('تم إنشاء المهمة بنجاح', 'success');
       setShowTaskForm(false);
       resetTaskForm();
       loadAdminData();
     } catch (error) {
-      showNotification('فشل إنشاء المهمة', 'error');
+      console.error('[v0] Failed to create task:', error);
+      const errorMessage = error instanceof Error ? error.message : 'فشل إنشاء المهمة';
+      showNotification(errorMessage, 'error');
     }
   }
 
   async function handleUpdateTask() {
-    if (!initData || !selectedTask) return;
+    if (!initData || !selectedTask) {
+      console.log('[v0] Missing initData or selectedTask');
+      return;
+    }
+    
+    // Validate required fields
+    if (!taskForm.network_id || !taskForm.title || !taskForm.description || taskForm.points === 0 || !taskForm.target_url) {
+      showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
+      return;
+    }
+    
     try {
+      console.log('[v0] Updating task with id:', selectedTask.id);
       await updateTask(initData, selectedTask.id, taskForm);
       showNotification('تم تحديث المهمة بنجاح', 'success');
       setSelectedTask(null);
@@ -155,7 +203,9 @@ export default function AdminPage() {
       resetTaskForm();
       loadAdminData();
     } catch (error) {
-      showNotification('فشل تحديث المهمة', 'error');
+      console.error('[v0] Failed to update task:', error);
+      const errorMessage = error instanceof Error ? error.message : 'فشل تحديث المهمة';
+      showNotification(errorMessage, 'error');
     }
   }
 
@@ -173,15 +223,29 @@ export default function AdminPage() {
   }
 
   async function handleCreateNetwork() {
-    if (!initData) return;
+    if (!initData) {
+      console.log('[v0] initData not available');
+      showNotification('بيانات المستخدم غير متاحة', 'error');
+      return;
+    }
+    
+    // Validate required fields
+    if (!networkForm.id || !networkForm.name || !networkForm.description) {
+      showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
+      return;
+    }
+    
     try {
+      console.log('[v0] Creating network with data:', networkForm);
       await createNetwork(initData, networkForm);
       showNotification('تم إنشاء الشبكة بنجاح', 'success');
       setShowNetworkForm(false);
       resetNetworkForm();
       loadAdminData();
     } catch (error) {
-      showNotification('فشل إنشاء الشبكة', 'error');
+      console.error('[v0] Failed to create network:', error);
+      const errorMessage = error instanceof Error ? error.message : 'فشل إنشاء الشبكة';
+      showNotification(errorMessage, 'error');
     }
   }
 
@@ -807,8 +871,4 @@ function getNetworkTypeLabel(type: string): string {
     survey: '📋 استبيان'
   };
   return labels[type] || type;
-}
-
-function cn(...classes: any[]) {
-  return classes.filter(Boolean).join(' ');
 }
