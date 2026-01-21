@@ -78,6 +78,15 @@ export default function AdminPage() {
   const [showNetworkForm, setShowNetworkForm] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  // Task type mapping from form values to API values
+  const taskTypeMap: Record<string, string> = {
+    'follow': 'facebook_follow',
+    'comment': 'youtube_comment',
+    'watch': 'youtube_watch',
+    'join': 'telegram_join',
+    'other': 'website_visit'
+  };
+
   // نموذج المهمة
   const [taskForm, setTaskForm] = useState({
     network_id: '',
@@ -122,29 +131,58 @@ export default function AdminPage() {
       
       console.log('[v0] Starting to load admin data...');
       
-      const [statsData, tasksData, networksData] = await Promise.all([
-        getAdminStats(initData).catch(err => {
-          console.error('[v0] Failed to load stats:', err);
-          return null;
-        }),
-        getAllTasks(initData).catch(err => {
-          console.error('[v0] Failed to load tasks:', err);
-          return [];
-        }),
-        getAllNetworks(initData).catch(err => {
-          console.error('[v0] Failed to load networks:', err);
-          return [];
-        })
+      // Use Promise.allSettled to handle partial failures gracefully
+      const results = await Promise.allSettled([
+        getAdminStats(initData),
+        getAllTasks(initData),
+        getAllNetworks(initData)
       ]);
       
-      console.log('[v0] Admin data loaded:', { statsData, tasksData: tasksData?.length || 0, networksData: networksData?.length || 0 });
+      const statsResult = results[0];
+      const tasksResult = results[1];
+      const networksResult = results[2];
       
+      let hasErrors = false;
+      let statsData = null;
+      let tasksData: any[] = [];
+      let networksData: any[] = [];
+      
+      // Process stats
+      if (statsResult.status === 'fulfilled') {
+        statsData = statsResult.value;
+        console.log('[v0] Stats loaded successfully');
+      } else {
+        console.error('[v0] Failed to load stats:', statsResult.reason);
+        hasErrors = true;
+      }
+      
+      // Process tasks
+      if (tasksResult.status === 'fulfilled') {
+        tasksData = tasksResult.value || [];
+        console.log('[v0] Tasks loaded:', tasksData.length);
+      } else {
+        console.error('[v0] Failed to load tasks:', tasksResult.reason);
+        hasErrors = true;
+      }
+      
+      // Process networks
+      if (networksResult.status === 'fulfilled') {
+        networksData = networksResult.value || [];
+        console.log('[v0] Networks loaded:', networksData.length);
+      } else {
+        console.error('[v0] Failed to load networks:', networksResult.reason);
+        hasErrors = true;
+      }
+      
+      // Update state
       if (statsData) setStats(statsData);
-      if (tasksData) setTasks(tasksData);
-      if (networksData) setNetworks(networksData);
+      setTasks(tasksData);
+      setNetworks(networksData);
       
-      if (!statsData || !tasksData || !networksData) {
-        showNotification('تم تحميل بعض البيانات بنجاح لكن توجد أخطاء في جزء منها', 'error');
+      if (hasErrors && (tasksData.length > 0 || networksData.length > 0)) {
+        showNotification('تم تحميل بعض البيانات بنجاح، لكن حدثت أخطاء في جزء من البيانات', 'error');
+      } else if (hasErrors) {
+        showNotification('فشل تحميل بيانات الأدمن', 'error');
       }
     } catch (error) {
       console.error('[v0] Failed to load admin data:', error);
@@ -169,8 +207,14 @@ export default function AdminPage() {
     }
     
     try {
-      console.log('[v0] Creating task with data:', taskForm);
-      await createTask(initData, taskForm);
+      // Map the task type to the API value
+      const mappedTaskData = {
+        ...taskForm,
+        type: taskTypeMap[taskForm.type] || taskForm.type
+      };
+      
+      console.log('[v0] Creating task with data:', mappedTaskData);
+      await createTask(initData, mappedTaskData);
       showNotification('تم إنشاء المهمة بنجاح', 'success');
       setShowTaskForm(false);
       resetTaskForm();
@@ -195,8 +239,14 @@ export default function AdminPage() {
     }
     
     try {
+      // Map the task type to the API value
+      const mappedTaskData = {
+        ...taskForm,
+        type: taskTypeMap[taskForm.type] || taskForm.type
+      };
+      
       console.log('[v0] Updating task with id:', selectedTask.id);
-      await updateTask(initData, selectedTask.id, taskForm);
+      await updateTask(initData, selectedTask.id, mappedTaskData);
       showNotification('تم تحديث المهمة بنجاح', 'success');
       setSelectedTask(null);
       setShowTaskForm(false);
